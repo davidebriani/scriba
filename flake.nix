@@ -86,44 +86,22 @@
           
           unpackPhase = ''
             unzip $src
-            echo "=== Extracted files ==="
-            find . -type f | sort
-            echo "======================"
           '';
           
           installPhase = ''
             mkdir -p $out/lib $out/include
             
-            # Copy libraries - be more explicit about what we're looking for
-            echo "=== Looking for libraries ==="
-            find . -name "*vosk*" -type f
-            echo "============================="
+            # Copy all .so files to lib directory
+            find . -name "*.so*" -exec cp {} $out/lib/ \;
             
-            # Copy libraries
-            if [[ -f vosk-*/libvosk.so ]]; then
-              cp vosk-*/libvosk.so* $out/lib/
-              echo "Copied libvosk.so"
-            elif [[ -f vosk-*/lib/libvosk.so ]]; then
-              cp vosk-*/lib/libvosk.so* $out/lib/
-              echo "Copied lib/libvosk.so"
-            elif ls vosk-*/libvosk.so* 1> /dev/null 2>&1; then
-              cp vosk-*/libvosk.so* $out/lib/
-              echo "Copied libvosk.so* pattern"
-            else
-              echo "WARNING: Could not find libvosk.so"
-              find . -name "*vosk*" -type f
+            # If no .so files found, copy everything that looks like a library
+            if [ -z "$(find $out/lib -name '*.so*' -print -quit)" ]; then
+              echo "No .so files found, copying all library-like files"
+              find . -type f \( -name "lib*" -o -name "*.so*" -o -name "*.dylib" \) -exec cp {} $out/lib/ \;
             fi
             
             # Copy headers
-            if [[ -f vosk-*/vosk_api.h ]]; then
-              cp vosk-*/vosk_api.h $out/include/
-              echo "Copied vosk_api.h"
-            elif [[ -f vosk-*/include/vosk_api.h ]]; then
-              cp vosk-*/include/vosk_api.h $out/include/
-              echo "Copied include/vosk_api.h"
-            else
-              echo "WARNING: Could not find vosk_api.h"
-            fi
+            find . -name "*.h" -exec cp {} $out/include/ \; 2>/dev/null || true
             
             # Set up pkg-config
             mkdir -p $out/lib/pkgconfig
@@ -141,9 +119,8 @@
             EOF
             
             # Show what we have
-            echo "=== Installed files ==="
+            echo "Installed files:"
             find $out -type f | sort
-            echo "======================"
           '';
         };
 
@@ -163,17 +140,13 @@
           VOSK_LIBRARY_PATH = "${voskLib}/lib";
           PKG_CONFIG_PATH = "${voskLib}/lib/pkgconfig:${pkgs.lib.makeSearchPathOutput "dev" "lib/pkgconfig" runtimeDeps}";
 
-          # Make sure Cargo can find the Vosk library
-          LIBRARY_PATH = pkgs.lib.makeLibraryPath [ voskLib pkgs.xdotool ];
-          RUSTFLAGS = "-L native=${voskLib}/lib -L native=${pkgs.xdotool}/lib";
-          
-          # For the vosk-sys crate specifically
-          VOSK_STATIC = "0";  # Use dynamic linking
-          VOSK_LIB_DIR = "${voskLib}/lib";
-          VOSK_INCLUDE_DIR = "${voskLib}/include";
-
           # Skip tests for now as they may require audio devices
           doCheck = false;
+
+          # Runtime library path setup
+          preFixup = pkgs.lib.optionalString pkgs.stdenv.isLinux ''
+            patchelf --set-rpath "${pkgs.lib.makeLibraryPath (runtimeDeps ++ [ voskLib pkgs.xdotool ])}" $out/bin/scriba
+          '';
 
           # Runtime library path setup
           preFixup = pkgs.lib.optionalString pkgs.stdenv.isLinux ''
