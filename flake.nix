@@ -126,7 +126,7 @@
 
           src = ./.;
 
-          cargoHash = "";
+          cargoHash = "sha256-ke6T1vhpnm4pTemNocT832gn1Pvg5r3CztH3gAL9zFc=";
 
           nativeBuildInputs = nativeDeps ++ [ voskLib ];
           buildInputs = runtimeDeps ++ [ voskLib ];
