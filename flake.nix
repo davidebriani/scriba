@@ -86,23 +86,43 @@
           
           unpackPhase = ''
             unzip $src
-            echo "Contents of extracted directory:"
-            find vosk-* -type f | head -20
+            echo "=== Extracted files ==="
+            find . -type f | sort
+            echo "======================"
           '';
           
           installPhase = ''
             mkdir -p $out/lib $out/include
             
+            # Copy libraries - be more explicit about what we're looking for
+            echo "=== Looking for libraries ==="
+            find . -name "*vosk*" -type f
+            echo "============================="
+            
             # Copy libraries
             if [[ -f vosk-*/libvosk.so ]]; then
               cp vosk-*/libvosk.so* $out/lib/
-            elif [[ -f vosk-*/libvosk.dylib ]]; then
-              cp vosk-*/libvosk.dylib $out/lib/
+              echo "Copied libvosk.so"
+            elif [[ -f vosk-*/lib/libvosk.so ]]; then
+              cp vosk-*/lib/libvosk.so* $out/lib/
+              echo "Copied lib/libvosk.so"
+            elif ls vosk-*/libvosk.so* 1> /dev/null 2>&1; then
+              cp vosk-*/libvosk.so* $out/lib/
+              echo "Copied libvosk.so* pattern"
+            else
+              echo "WARNING: Could not find libvosk.so"
+              find . -name "*vosk*" -type f
             fi
             
             # Copy headers
-            if [[ -d vosk-*/vosk_api.h ]]; then
+            if [[ -f vosk-*/vosk_api.h ]]; then
               cp vosk-*/vosk_api.h $out/include/
+              echo "Copied vosk_api.h"
+            elif [[ -f vosk-*/include/vosk_api.h ]]; then
+              cp vosk-*/include/vosk_api.h $out/include/
+              echo "Copied include/vosk_api.h"
+            else
+              echo "WARNING: Could not find vosk_api.h"
             fi
             
             # Set up pkg-config
@@ -121,8 +141,9 @@
             EOF
             
             # Show what we have
-            echo "Installed files:"
-            find $out -type f
+            echo "=== Installed files ==="
+            find $out -type f | sort
+            echo "======================"
           '';
         };
 
