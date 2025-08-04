@@ -117,6 +117,10 @@
             Libs: -L\''${libdir} -lvosk
             Cflags: -I\''${includedir}
             EOF
+            
+            # Show what we have
+            echo "Installed files:"
+            find $out -type f
           '';
         };
 
@@ -136,9 +140,9 @@
           VOSK_LIBRARY_PATH = "${voskLib}/lib";
           PKG_CONFIG_PATH = "${voskLib}/lib/pkgconfig:${pkgs.lib.makeSearchPathOutput "dev" "lib/pkgconfig" runtimeDeps}";
 
-          # Make sure the linker can find the libraries
-          LIBRARY_PATH = pkgs.lib.makeLibraryPath (runtimeDeps ++ [ voskLib ]);
-          NIX_LDFLAGS = "-L${voskLib}/lib -L${pkgs.xdotool}/lib";
+          # Make sure Cargo can find the Vosk library
+          LIBRARY_PATH = pkgs.lib.makeLibraryPath [ voskLib ];
+          RUSTFLAGS = "-L native=${voskLib}/lib";
 
           # Skip tests for now as they may require audio devices
           doCheck = false;
