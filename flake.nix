@@ -148,11 +148,6 @@
             patchelf --set-rpath "${pkgs.lib.makeLibraryPath (runtimeDeps ++ [ voskLib pkgs.xdotool ])}" $out/bin/scriba
           '';
 
-          # Runtime library path setup
-          preFixup = pkgs.lib.optionalString pkgs.stdenv.isLinux ''
-            patchelf --set-rpath "${pkgs.lib.makeLibraryPath (runtimeDeps ++ [ voskLib pkgs.xdotool ])}" $out/bin/scriba
-          '';
-
           meta = with pkgs.lib; {
             description = "Real-time speech transcription tool focused on software engineering terms";
             homepage = "https://github.com/davidebriani/scriba";
