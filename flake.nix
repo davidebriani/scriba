@@ -50,6 +50,7 @@
           curl              # HTTP client library
           unzip             # For extracting models
           xdotool           # For xdo library (keyboard simulation)
+          stdenv.cc.cc.lib  # libstdc++
         ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
           # macOS-specific dependencies
           darwin.apple_sdk.frameworks.CoreAudio
