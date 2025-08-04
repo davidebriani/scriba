@@ -49,6 +49,7 @@
           openssl           # SSL/TLS support
           curl              # HTTP client library
           unzip             # For extracting models
+          xdotool           # For xdo library (keyboard simulation)
         ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
           # macOS-specific dependencies
           darwin.apple_sdk.frameworks.CoreAudio
@@ -134,6 +135,10 @@
           # Environment variables for build
           VOSK_LIBRARY_PATH = "${voskLib}/lib";
           PKG_CONFIG_PATH = "${voskLib}/lib/pkgconfig:${pkgs.lib.makeSearchPathOutput "dev" "lib/pkgconfig" runtimeDeps}";
+
+          # Make sure the linker can find the libraries
+          LIBRARY_PATH = pkgs.lib.makeLibraryPath (runtimeDeps ++ [ voskLib ]);
+          NIX_LDFLAGS = "-L${voskLib}/lib -L${pkgs.xdotool}/lib";
 
           # Skip tests for now as they may require audio devices
           doCheck = false;
