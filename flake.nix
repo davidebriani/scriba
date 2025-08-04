@@ -141,8 +141,13 @@
           PKG_CONFIG_PATH = "${voskLib}/lib/pkgconfig:${pkgs.lib.makeSearchPathOutput "dev" "lib/pkgconfig" runtimeDeps}";
 
           # Make sure Cargo can find the Vosk library
-          LIBRARY_PATH = pkgs.lib.makeLibraryPath [ voskLib ];
-          RUSTFLAGS = "-L native=${voskLib}/lib";
+          LIBRARY_PATH = pkgs.lib.makeLibraryPath [ voskLib pkgs.xdotool ];
+          RUSTFLAGS = "-L native=${voskLib}/lib -L native=${pkgs.xdotool}/lib";
+          
+          # For the vosk-sys crate specifically
+          VOSK_STATIC = "0";  # Use dynamic linking
+          VOSK_LIB_DIR = "${voskLib}/lib";
+          VOSK_INCLUDE_DIR = "${voskLib}/include";
 
           # Skip tests for now as they may require audio devices
           doCheck = false;
