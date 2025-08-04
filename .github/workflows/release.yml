@@ -1,0 +1,352 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      release_id: ${{ steps.create_release.outputs.id }}
+    steps:
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Scriba ${{ github.ref }}
+          body: |
+            ## Features
+            - Real-time speech transcription with Vosk
+            - Support for 25+ languages
+            - Software engineering term optimization
+            - Automatic keyboard input simulation
+            - Cross-platform support (Linux, macOS, Windows)
+            
+            ## Installation
+            
+            ### Download Binary
+            Download the appropriate binary for your platform from the assets below.
+            
+            ### Using Nix
+            ```bash
+            nix run github:davidebriani/scriba
+            ```
+            
+            ### From Source
+            ```bash
+            git clone https://github.com/davidebriani/scriba.git
+            cd scriba
+            ./install.sh
+            ```
+            
+            ## Usage
+            ```bash
+            scriba                  # Start with interactive model selection
+            scriba --no-typing      # Transcription only
+            scriba --debug          # Show debug output
+            scriba --help           # Show all options
+            ```
+          draft: false
+          prerelease: false
+
+  build-linux-x86_64:
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libasound2-dev \
+            libpulse-dev \
+            libxdo-dev \
+            libxrandr-dev \
+            libxss-dev \
+            libxtst6 \
+            libxext6 \
+            libxi6 \
+            pkg-config \
+            build-essential \
+            curl \
+            unzip
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo index
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Download and install Vosk library
+        run: |
+          curl -L -o vosk-linux-x86_64-0.3.45.zip \
+            "https://github.com/alphacep/vosk-api/releases/download/v0.3.45/vosk-linux-x86_64-0.3.45.zip"
+          unzip vosk-linux-x86_64-0.3.45.zip
+          sudo mkdir -p /usr/local/lib
+          sudo cp vosk-linux-x86_64-0.3.45/libvosk.so /usr/local/lib/
+          sudo ldconfig
+          echo "VOSK_LIBRARY_PATH=/usr/local/lib" >> $GITHUB_ENV
+
+      - name: Build release binary
+        run: |
+          cargo build --release
+          strip target/release/scriba
+
+      - name: Create binary archive
+        run: |
+          mkdir -p dist
+          cp target/release/scriba dist/
+          cp README.md dist/ || echo "README not found"
+          cp LICENSE dist/ || echo "LICENSE not found"
+          cd dist
+          tar -czf scriba-linux-x86_64.tar.gz *
+
+      - name: Upload binary to release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./dist/scriba-linux-x86_64.tar.gz
+          asset_name: scriba-linux-x86_64.tar.gz
+          asset_content_type: application/gzip
+
+  build-linux-aarch64:
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu \
+            libc6-dev-arm64-cross \
+            pkg-config \
+            curl \
+            unzip
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: aarch64-unknown-linux-gnu
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-aarch64-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Download Vosk library for aarch64
+        run: |
+          curl -L -o vosk-linux-aarch64-0.3.45.zip \
+            "https://github.com/alphacep/vosk-api/releases/download/v0.3.45/vosk-linux-aarch64-0.3.45.zip"
+          unzip vosk-linux-aarch64-0.3.45.zip
+          mkdir -p vosk-lib-aarch64
+          cp vosk-linux-aarch64-0.3.45/libvosk.so vosk-lib-aarch64/
+          echo "VOSK_LIBRARY_PATH=$(pwd)/vosk-lib-aarch64" >> $GITHUB_ENV
+
+      - name: Configure cross-compilation
+        run: |
+          echo "[target.aarch64-unknown-linux-gnu]" >> ~/.cargo/config.toml
+          echo "linker = \"aarch64-linux-gnu-gcc\"" >> ~/.cargo/config.toml
+
+      - name: Build release binary
+        run: |
+          cargo build --release --target aarch64-unknown-linux-gnu
+          aarch64-linux-gnu-strip target/aarch64-unknown-linux-gnu/release/scriba
+
+      - name: Create binary archive
+        run: |
+          mkdir -p dist
+          cp target/aarch64-unknown-linux-gnu/release/scriba dist/
+          cp vosk-lib-aarch64/libvosk.so dist/
+          cp README.md dist/ || echo "README not found"
+          cp LICENSE dist/ || echo "LICENSE not found"
+          cd dist
+          tar -czf scriba-linux-aarch64.tar.gz *
+
+      - name: Upload binary to release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./dist/scriba-linux-aarch64.tar.gz
+          asset_name: scriba-linux-aarch64.tar.gz
+          asset_content_type: application/gzip
+
+  build-macos-x86_64:
+    needs: create-release
+    runs-on: macos-13  # Intel-based runner
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/registry
+          key: macos-x86_64-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Download and install Vosk library
+        run: |
+          curl -L -o vosk-osx-0.3.45.zip \
+            "https://github.com/alphacep/vosk-api/releases/download/v0.3.45/vosk-osx-0.3.45.zip"
+          unzip vosk-osx-0.3.45.zip
+          sudo cp vosk-osx-0.3.45/libvosk.dylib /usr/local/lib/
+          echo "VOSK_LIBRARY_PATH=/usr/local/lib" >> $GITHUB_ENV
+
+      - name: Build release binary
+        run: |
+          cargo build --release
+          strip target/release/scriba
+
+      - name: Create binary archive
+        run: |
+          mkdir -p dist
+          cp target/release/scriba dist/
+          cp README.md dist/ || echo "README not found"
+          cp LICENSE dist/ || echo "LICENSE not found"
+          cd dist
+          tar -czf scriba-macos-x86_64.tar.gz *
+
+      - name: Upload binary to release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./dist/scriba-macos-x86_64.tar.gz
+          asset_name: scriba-macos-x86_64.tar.gz
+          asset_content_type: application/gzip
+
+  build-macos-aarch64:
+    needs: create-release
+    runs-on: macos-14  # Apple Silicon runner
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/registry
+          key: macos-aarch64-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Download and install Vosk library
+        run: |
+          curl -L -o vosk-osx-0.3.45.zip \
+            "https://github.com/alphacep/vosk-api/releases/download/v0.3.45/vosk-osx-0.3.45.zip"
+          unzip vosk-osx-0.3.45.zip
+          sudo cp vosk-osx-0.3.45/libvosk.dylib /usr/local/lib/
+          echo "VOSK_LIBRARY_PATH=/usr/local/lib" >> $GITHUB_ENV
+
+      - name: Build release binary
+        run: |
+          cargo build --release
+          strip target/release/scriba
+
+      - name: Create binary archive
+        run: |
+          mkdir -p dist
+          cp target/release/scriba dist/
+          cp README.md dist/ || echo "README not found"
+          cp LICENSE dist/ || echo "LICENSE not found"
+          cd dist
+          tar -czf scriba-macos-aarch64.tar.gz *
+
+      - name: Upload binary to release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./dist/scriba-macos-aarch64.tar.gz
+          asset_name: scriba-macos-aarch64.tar.gz
+          asset_content_type: application/gzip
+
+  build-windows-x86_64:
+    needs: create-release
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/registry
+          key: windows-x86_64-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Download and install Vosk library
+        shell: powershell
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/alphacep/vosk-api/releases/download/v0.3.45/vosk-win64-0.3.45.zip" -OutFile "vosk-win64.zip"
+          Expand-Archive -Path "vosk-win64.zip" -DestinationPath "."
+          Copy-Item "vosk-win64-0.3.45\libvosk.dll" -Destination "C:\Windows\System32\"
+          echo "VOSK_LIBRARY_PATH=C:\Windows\System32" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Build release binary
+        run: |
+          cargo build --release
+
+      - name: Create binary archive
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path dist
+          Copy-Item target\release\scriba.exe dist\
+          Copy-Item vosk-win64-0.3.45\libvosk.dll dist\
+          if (Test-Path README.md) { Copy-Item README.md dist\ }
+          if (Test-Path LICENSE) { Copy-Item LICENSE dist\ }
+          Compress-Archive -Path dist\* -DestinationPath scriba-windows-x86_64.zip
+
+      - name: Upload binary to release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./scriba-windows-x86_64.zip
+          asset_name: scriba-windows-x86_64.zip
+          asset_content_type: application/zip

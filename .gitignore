@@ -1,0 +1,31 @@
+# Compiled files
+target/
+**/*.rs.bk
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Editor files
+*~
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env*
+
+# Log files
+*.log
+
+# Build artifacts
+build/
+dist/
+
+# Nix files
+result*
+.direnv/
+
+# Crush files
+.crush/
