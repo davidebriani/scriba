@@ -86,6 +86,8 @@
           
           unpackPhase = ''
             unzip $src
+            echo "Contents of extracted directory:"
+            find vosk-* -type f | head -20
           '';
           
           installPhase = ''
