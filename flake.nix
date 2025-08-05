@@ -135,7 +135,7 @@
 
           cargoHash = "sha256-ke6T1vhpnm4pTemNocT832gn1Pvg5r3CztH3gAL9zFc=";
 
-          nativeBuildInputs = nativeDeps ++ [ voskLib pkgs.autoPatchelfHook ];
+          nativeBuildInputs = nativeDeps ++ [ voskLib ];
           buildInputs = runtimeDeps ++ [ voskLib ];
 
           # Environment variables for build
@@ -148,8 +148,6 @@
           # Runtime library path setup
           preFixup = pkgs.lib.optionalString pkgs.stdenv.isLinux ''
             patchelf --set-rpath "${pkgs.lib.makeLibraryPath (runtimeDeps ++ [ voskLib ])}" $out/bin/scriba
-            # Make sure all needed libraries are included in the closure
-            autoPatchelfPhase
           '';
 
           meta = with pkgs.lib; {
