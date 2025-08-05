@@ -146,7 +146,7 @@
 
           # Runtime library path setup
           preFixup = pkgs.lib.optionalString pkgs.stdenv.isLinux ''
-            patchelf --set-rpath "${pkgs.lib.makeLibraryPath (runtimeDeps ++ [ voskLib pkgs.stdenv.cc.cc.lib ])}" $out/bin/scriba
+            patchelf --set-rpath "${pkgs.lib.makeLibraryPath (runtimeDeps ++ [ voskLib ])}:${pkgs.stdenv.cc.cc.lib}/lib" $out/bin/scriba
           '';
 
           meta = with pkgs.lib; {
