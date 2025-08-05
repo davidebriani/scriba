@@ -51,6 +51,7 @@
           unzip             # For extracting models
           xdotool           # For xdo library (keyboard simulation)
           stdenv.cc.cc.lib  # Standard library (libstdc++)
+          libgcc            # GCC support library
         ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
           # macOS-specific dependencies
           darwin.apple_sdk.frameworks.CoreAudio
@@ -134,7 +135,7 @@
 
           cargoHash = "sha256-ke6T1vhpnm4pTemNocT832gn1Pvg5r3CztH3gAL9zFc=";
 
-          nativeBuildInputs = nativeDeps ++ [ voskLib ];
+          nativeBuildInputs = nativeDeps ++ [ voskLib pkgs.autoPatchelfHook ];
           buildInputs = runtimeDeps ++ [ voskLib ];
 
           # Environment variables for build
@@ -146,7 +147,9 @@
 
           # Runtime library path setup
           preFixup = pkgs.lib.optionalString pkgs.stdenv.isLinux ''
-            patchelf --set-rpath "${pkgs.lib.makeLibraryPath (runtimeDeps ++ [ voskLib ])}:${pkgs.stdenv.cc.cc.lib}/lib" $out/bin/scriba
+            patchelf --set-rpath "${pkgs.lib.makeLibraryPath (runtimeDeps ++ [ voskLib ])}" $out/bin/scriba
+            # Make sure all needed libraries are included in the closure
+            autoPatchelfPhase
           '';
 
           meta = with pkgs.lib; {
@@ -172,7 +175,7 @@
           shellHook = ''
             export VOSK_LIBRARY_PATH="${voskLib}/lib"
             export PKG_CONFIG_PATH="${voskLib}/lib/pkgconfig:$PKG_CONFIG_PATH"
-            export LD_LIBRARY_PATH="${voskLib}/lib:$LD_LIBRARY_PATH"
+            export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath (runtimeDeps ++ [ voskLib ])}:$LD_LIBRARY_PATH"
             
             echo "🎙️  Scriba development environment"
             echo "Vosk library: ${voskLib}/lib"
