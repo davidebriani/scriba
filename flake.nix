@@ -50,7 +50,7 @@
           curl              # HTTP client library
           unzip             # For extracting models
           xdotool           # For xdo library (keyboard simulation)
-          gcc.cc            # GCC compiler collection (includes libstdc++)
+          stdenv.cc.cc.lib  # Standard library (libstdc++)
         ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
           # macOS-specific dependencies
           darwin.apple_sdk.frameworks.CoreAudio
@@ -146,7 +146,7 @@
 
           # Runtime library path setup
           preFixup = pkgs.lib.optionalString pkgs.stdenv.isLinux ''
-            patchelf --set-rpath "${pkgs.lib.makeLibraryPath (runtimeDeps ++ [ voskLib pkgs.xdotool pkgs.gcc.cc.lib ])}" $out/bin/scriba
+            patchelf --set-rpath "${pkgs.lib.makeLibraryPath (runtimeDeps ++ [ voskLib pkgs.stdenv.cc.cc.lib ])}" $out/bin/scriba
           '';
 
           meta = with pkgs.lib; {
